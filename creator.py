@@ -5,10 +5,10 @@ import re
 
 fake = Faker()
 
-st.title("🧠 Smart Form Tester (Stable Cloud Version)")
+st.title("🧠 Smart QA Form Tester (Playwright)")
 
-url = st.text_input("🔗 Enter Website URL")
-run = st.button("Start Test")
+url = st.text_input("🔗 Enter Test URL")
+run = st.button("Run Test")
 
 
 def generate_data():
@@ -22,7 +22,6 @@ def generate_data():
 
 def detect_and_fill(page, data):
     inputs = page.query_selector_all("input")
-
     filled = 0
 
     for inp in inputs:
@@ -33,11 +32,11 @@ def detect_and_fill(page, data):
 
             text = name + placeholder + typ
 
-            if re.search("first|fname", text):
+            if re.search("first|fname|given", text):
                 inp.fill(data["first_name"])
                 filled += 1
 
-            elif re.search("last|lname", text):
+            elif re.search("last|lname|family", text):
                 inp.fill(data["last_name"])
                 filled += 1
 
@@ -56,27 +55,32 @@ def detect_and_fill(page, data):
 
 
 if run and url:
+    st.info("Running test...")
+
     data = generate_data()
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        browser = p.chromium.launch(
+            headless=True,
+            args=["--no-sandbox", "--disable-dev-shm-usage"]
+        )
+
         page = browser.new_page()
-        page.goto(url)
+        page.goto(url, timeout=60000)
 
         filled = detect_and_fill(page, data)
 
-        # try submit
         try:
             page.click("button")
             submitted = True
         except:
             submitted = False
 
-        st.write(f"Fields filled: {filled}")
-
-        if submitted:
-            st.success("Form submitted attempt done ✅")
-        else:
-            st.warning("Submit button not detected ⚠️")
-
         browser.close()
+
+    st.write(f"Fields filled: {filled}")
+
+    if submitted:
+        st.success("Submit attempted ✅")
+    else:
+        st.warning("Submit button not detected ⚠️")
