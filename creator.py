@@ -1,53 +1,16 @@
 import streamlit as st
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
+from playwright.sync_api import sync_playwright
 from faker import Faker
-import time
 import re
 
 fake = Faker()
 
-st.title("🧠 Smart Form Tester (Final Cloud Version)")
+st.title("🧠 Smart Form Tester (Stable Cloud Version)")
 
 url = st.text_input("🔗 Enter Website URL")
 run = st.button("Start Test")
 
 
-# ===== DRIVER (NO CHROME DRIVER MANAGER) =====
-def get_driver():
-    options = Options()
-
-    options.add_argument("--headless=new")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--disable-blink-features=AutomationControlled")
-
-    return webdriver.Chrome(options=options)
-
-
-# ===== SMART DETECTION =====
-def detect_field(element):
-    name = (element.get_attribute("name") or "").lower()
-    placeholder = (element.get_attribute("placeholder") or "").lower()
-    typ = (element.get_attribute("type") or "").lower()
-
-    text = name + " " + placeholder + " " + typ
-
-    if re.search(r"first|fname|given", text):
-        return "first_name"
-    if re.search(r"last|lname|family", text):
-        return "last_name"
-    if re.search(r"mail|email", text):
-        return "email"
-    if re.search(r"pass|pwd", text):
-        return "password"
-
-    return None
-
-
-# ===== FAKE DATA =====
 def generate_data():
     return {
         "first_name": fake.first_name(),
@@ -57,70 +20,63 @@ def generate_data():
     }
 
 
-# ===== FILL FORM =====
-def fill_form(driver):
-    data = generate_data()
-    inputs = driver.find_elements(By.TAG_NAME, "input")
+def detect_and_fill(page, data):
+    inputs = page.query_selector_all("input")
 
     filled = 0
 
     for inp in inputs:
         try:
-            field = detect_field(inp)
+            name = (inp.get_attribute("name") or "").lower()
+            placeholder = (inp.get_attribute("placeholder") or "").lower()
+            typ = (inp.get_attribute("type") or "").lower()
 
-            if field:
-                inp.clear()
-                inp.send_keys(data[field])
+            text = name + placeholder + typ
+
+            if re.search("first|fname", text):
+                inp.fill(data["first_name"])
                 filled += 1
+
+            elif re.search("last|lname", text):
+                inp.fill(data["last_name"])
+                filled += 1
+
+            elif "email" in text:
+                inp.fill(data["email"])
+                filled += 1
+
+            elif "pass" in text:
+                inp.fill(data["password"])
+                filled += 1
+
         except:
             continue
 
     return filled
 
 
-# ===== SUBMIT =====
-def submit_form(driver):
-    try:
-        buttons = driver.find_elements(By.TAG_NAME, "button")
-
-        for btn in buttons:
-            text = (btn.text or "").lower()
-
-            if any(k in text for k in ["submit", "create", "sign", "register", "join"]):
-                btn.click()
-                return True
-
-        if buttons:
-            buttons[0].click()
-            return True
-
-    except:
-        pass
-
-    return False
-
-
-# ===== RUN =====
 if run and url:
-    driver = get_driver()
-    driver.get(url)
+    data = generate_data()
 
-    time.sleep(3)
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+        page.goto(url)
 
-    st.info("Analyzing form... 🧠")
+        filled = detect_and_fill(page, data)
 
-    try:
-        filled = fill_form(driver)
-        submitted = submit_form(driver)
+        # try submit
+        try:
+            page.click("button")
+            submitted = True
+        except:
+            submitted = False
 
-        st.write(f"Fields detected & filled: {filled}")
+        st.write(f"Fields filled: {filled}")
 
         if submitted:
-            st.success("Form submission attempted ✅")
+            st.success("Form submitted attempt done ✅")
         else:
-            st.warning("Submit button not clearly detected ⚠️")
+            st.warning("Submit button not detected ⚠️")
 
-    except Exception as e:
-        st.error(f"Error: {e}")
-
-    driver.quit()
+        browser.close()
