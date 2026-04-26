@@ -5,15 +5,15 @@ import re
 
 fake = Faker()
 
-st.title("🧠 Smart QA Form Tester (Playwright Cloud Safe)")
+st.title("🧠 Smart QA Form Tester (Playwright)")
 
 url = st.text_input("🔗 Enter Test URL")
 run = st.button("Run Test")
 
 
-# =====================
-# DATA GENERATION
-# =====================
+# =========================
+# FAKE DATA GENERATOR
+# =========================
 def generate_data():
     return {
         "first_name": fake.first_name(),
@@ -23,9 +23,9 @@ def generate_data():
     }
 
 
-# =====================
-# SMART FIELD DETECTION
-# =====================
+# =========================
+# SMART FIELD DETECTOR
+# =========================
 def detect_and_fill(page, data):
     inputs = page.query_selector_all("input")
     filled = 0
@@ -60,11 +60,11 @@ def detect_and_fill(page, data):
     return filled
 
 
-# =====================
-# MAIN RUN
-# =====================
+# =========================
+# MAIN EXECUTION
+# =========================
 if run and url:
-    st.info("Running Playwright test...")
+    st.info("Running Playwright automation...")
 
     data = generate_data()
 
@@ -72,7 +72,11 @@ if run and url:
         with sync_playwright() as p:
             browser = p.chromium.launch(
                 headless=True,
-                args=["--no-sandbox", "--disable-dev-shm-usage"]
+                args=[
+                    "--no-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu"
+                ]
             )
 
             page = browser.new_page()
@@ -80,7 +84,6 @@ if run and url:
 
             filled = detect_and_fill(page, data)
 
-            # try submit
             try:
                 page.click("button")
                 submitted = True
@@ -92,7 +95,7 @@ if run and url:
         st.write(f"Fields filled: {filled}")
 
         if submitted:
-            st.success("Submit attempted successfully ✅")
+            st.success("Form submit attempted ✅")
         else:
             st.warning("Submit button not clearly detected ⚠️")
 
