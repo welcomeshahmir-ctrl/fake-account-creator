@@ -8,13 +8,13 @@ import re
 
 fake = Faker()
 
-st.title("🧠 Smart Form Tester (Cloud Safe Version)")
+st.title("🧠 Smart Form Tester (Final Cloud Version)")
 
 url = st.text_input("🔗 Enter Website URL")
 run = st.button("Start Test")
 
 
-# ===== DRIVER (CLOUD SAFE FIX) =====
+# ===== DRIVER (NO CHROME DRIVER MANAGER) =====
 def get_driver():
     options = Options()
 
@@ -24,17 +24,16 @@ def get_driver():
     options.add_argument("--disable-gpu")
     options.add_argument("--disable-blink-features=AutomationControlled")
 
-    driver = webdriver.Chrome(options=options)
-    return driver
+    return webdriver.Chrome(options=options)
 
 
-# ===== SMART FIELD DETECTION =====
-def detect_field_type(element):
+# ===== SMART DETECTION =====
+def detect_field(element):
     name = (element.get_attribute("name") or "").lower()
     placeholder = (element.get_attribute("placeholder") or "").lower()
-    input_type = (element.get_attribute("type") or "").lower()
+    typ = (element.get_attribute("type") or "").lower()
 
-    text = name + " " + placeholder + " " + input_type
+    text = name + " " + placeholder + " " + typ
 
     if re.search(r"first|fname|given", text):
         return "first_name"
@@ -42,7 +41,7 @@ def detect_field_type(element):
         return "last_name"
     if re.search(r"mail|email", text):
         return "email"
-    if re.search(r"pass|pwd|password", text):
+    if re.search(r"pass|pwd", text):
         return "password"
 
     return None
@@ -58,36 +57,36 @@ def generate_data():
     }
 
 
-# ===== FORM FILL =====
+# ===== FILL FORM =====
 def fill_form(driver):
     data = generate_data()
     inputs = driver.find_elements(By.TAG_NAME, "input")
 
-    mapped = 0
+    filled = 0
 
     for inp in inputs:
         try:
-            field = detect_field_type(inp)
+            field = detect_field(inp)
 
             if field:
                 inp.clear()
                 inp.send_keys(data[field])
-                mapped += 1
+                filled += 1
         except:
             continue
 
-    return mapped
+    return filled
 
 
 # ===== SUBMIT =====
-def click_submit(driver):
+def submit_form(driver):
     try:
         buttons = driver.find_elements(By.TAG_NAME, "button")
 
         for btn in buttons:
             text = (btn.text or "").lower()
 
-            if any(k in text for k in ["submit", "sign", "create", "register", "join"]):
+            if any(k in text for k in ["submit", "create", "sign", "register", "join"]):
                 btn.click()
                 return True
 
@@ -112,7 +111,7 @@ if run and url:
 
     try:
         filled = fill_form(driver)
-        submitted = click_submit(driver)
+        submitted = submit_form(driver)
 
         st.write(f"Fields detected & filled: {filled}")
 
