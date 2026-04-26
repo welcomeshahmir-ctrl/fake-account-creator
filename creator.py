@@ -1,30 +1,31 @@
 import streamlit as st
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.options import Options
 from faker import Faker
 import time
 import re
 
 fake = Faker()
 
-st.title("🧠 Pro Smart Form Tester (AI-style detection)")
+st.title("🧠 Smart Form Tester (Cloud Safe Version)")
 
 url = st.text_input("🔗 Enter Website URL")
 run = st.button("Start Test")
 
-# ===== DRIVER =====
-def get_driver():
-    options = webdriver.ChromeOptions()
-    options.add_argument("--headless")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-gpu")
 
-    return webdriver.Chrome(
-        service=Service(ChromeDriverManager().install()),
-        options=options
-    )
+# ===== DRIVER (CLOUD SAFE FIX) =====
+def get_driver():
+    options = Options()
+
+    options.add_argument("--headless=new")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--disable-blink-features=AutomationControlled")
+
+    driver = webdriver.Chrome(options=options)
+    return driver
 
 
 # ===== SMART FIELD DETECTION =====
@@ -57,7 +58,7 @@ def generate_data():
     }
 
 
-# ===== MAIN LOGIC =====
+# ===== FORM FILL =====
 def fill_form(driver):
     data = generate_data()
     inputs = driver.find_elements(By.TAG_NAME, "input")
@@ -78,6 +79,7 @@ def fill_form(driver):
     return mapped
 
 
+# ===== SUBMIT =====
 def click_submit(driver):
     try:
         buttons = driver.find_elements(By.TAG_NAME, "button")
@@ -89,7 +91,6 @@ def click_submit(driver):
                 btn.click()
                 return True
 
-        # fallback
         if buttons:
             buttons[0].click()
             return True
@@ -110,10 +111,10 @@ if run and url:
     st.info("Analyzing form... 🧠")
 
     try:
-        mapped = fill_form(driver)
+        filled = fill_form(driver)
         submitted = click_submit(driver)
 
-        st.write(f"Fields detected & filled: {mapped}")
+        st.write(f"Fields detected & filled: {filled}")
 
         if submitted:
             st.success("Form submission attempted ✅")
