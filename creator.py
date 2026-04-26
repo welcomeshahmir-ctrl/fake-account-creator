@@ -5,12 +5,15 @@ import re
 
 fake = Faker()
 
-st.title("🧠 Smart QA Form Tester (Playwright)")
+st.title("🧠 Smart QA Form Tester (Playwright Cloud Safe)")
 
 url = st.text_input("🔗 Enter Test URL")
 run = st.button("Run Test")
 
 
+# =====================
+# DATA GENERATION
+# =====================
 def generate_data():
     return {
         "first_name": fake.first_name(),
@@ -20,6 +23,9 @@ def generate_data():
     }
 
 
+# =====================
+# SMART FIELD DETECTION
+# =====================
 def detect_and_fill(page, data):
     inputs = page.query_selector_all("input")
     filled = 0
@@ -30,13 +36,13 @@ def detect_and_fill(page, data):
             placeholder = (inp.get_attribute("placeholder") or "").lower()
             typ = (inp.get_attribute("type") or "").lower()
 
-            text = name + placeholder + typ
+            text = name + " " + placeholder + " " + typ
 
-            if re.search("first|fname|given", text):
+            if re.search(r"first|fname|given", text):
                 inp.fill(data["first_name"])
                 filled += 1
 
-            elif re.search("last|lname|family", text):
+            elif re.search(r"last|lname|family", text):
                 inp.fill(data["last_name"])
                 filled += 1
 
@@ -54,33 +60,41 @@ def detect_and_fill(page, data):
     return filled
 
 
+# =====================
+# MAIN RUN
+# =====================
 if run and url:
-    st.info("Running test...")
+    st.info("Running Playwright test...")
 
     data = generate_data()
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(
-            headless=True,
-            args=["--no-sandbox", "--disable-dev-shm-usage"]
-        )
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(
+                headless=True,
+                args=["--no-sandbox", "--disable-dev-shm-usage"]
+            )
 
-        page = browser.new_page()
-        page.goto(url, timeout=60000)
+            page = browser.new_page()
+            page.goto(url, timeout=60000)
 
-        filled = detect_and_fill(page, data)
+            filled = detect_and_fill(page, data)
 
-        try:
-            page.click("button")
-            submitted = True
-        except:
-            submitted = False
+            # try submit
+            try:
+                page.click("button")
+                submitted = True
+            except:
+                submitted = False
 
-        browser.close()
+            browser.close()
 
-    st.write(f"Fields filled: {filled}")
+        st.write(f"Fields filled: {filled}")
 
-    if submitted:
-        st.success("Submit attempted ✅")
-    else:
-        st.warning("Submit button not detected ⚠️")
+        if submitted:
+            st.success("Submit attempted successfully ✅")
+        else:
+            st.warning("Submit button not clearly detected ⚠️")
+
+    except Exception as e:
+        st.error(f"Error: {e}")
