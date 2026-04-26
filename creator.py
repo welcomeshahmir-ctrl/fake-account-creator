@@ -1,16 +1,18 @@
 import streamlit as st
+import os
 from playwright.sync_api import sync_playwright
 
-st.set_page_config(page_title="Website Viewer", layout="centered")
+st.title("🌐 Stable Website Viewer (Auto Fix Version)")
 
-st.title("🌐 Website Viewer (Playwright + Streamlit)")
-
-url = st.text_input("Enter Website URL")
-
+url = st.text_input("Enter URL")
 run = st.button("Open Website")
 
 
-def load_page(target_url):
+# 🔥 AUTO FIX: ensures browser is installed
+os.system("playwright install chromium")
+
+
+def open_page(target_url):
     with sync_playwright() as p:
         browser = p.chromium.launch(
             headless=True,
@@ -24,24 +26,21 @@ def load_page(target_url):
         page = browser.new_page()
         page.goto(target_url, timeout=60000)
 
-        screenshot_path = "page.png"
-        page.screenshot(path=screenshot_path, full_page=True)
+        path = "page.png"
+        page.screenshot(path=path, full_page=True)
 
         browser.close()
-        return screenshot_path
+        return path
 
 
-if run:
-    if not url:
-        st.warning("Please enter a valid URL")
-    else:
-        try:
-            st.info("Loading website... please wait")
+if run and url:
+    try:
+        st.info("Loading website...")
 
-            image_file = load_page(url)
+        img = open_page(url)
 
-            st.success("Page loaded successfully ✅")
-            st.image(image_file, caption="Website Screenshot")
+        st.success("Loaded successfully ✅")
+        st.image(img)
 
-        except Exception as e:
-            st.error(f"Error: {str(e)}")
+    except Exception as e:
+        st.error(f"Error: {e}")
