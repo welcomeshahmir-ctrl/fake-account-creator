@@ -1,103 +1,46 @@
 import streamlit as st
+import os
 from playwright.sync_api import sync_playwright
-from faker import Faker
-import re
 
-fake = Faker()
+st.title("🌐 Live Website Viewer (Final Stable Version)")
 
-st.title("🧠 Smart QA Form Tester (Playwright)")
-
-url = st.text_input("🔗 Enter Test URL")
-run = st.button("Run Test")
+url = st.text_input("Enter Website URL")
+run = st.button("Open Website")
 
 
-# =========================
-# FAKE DATA GENERATOR
-# =========================
-def generate_data():
-    return {
-        "first_name": fake.first_name(),
-        "last_name": fake.last_name(),
-        "email": fake.email(),
-        "password": fake.password()
-    }
+# 🔥 AUTO FIX: ensures chromium is installed inside runtime
+os.system("playwright install chromium")
 
 
-# =========================
-# SMART FIELD DETECTOR
-# =========================
-def detect_and_fill(page, data):
-    inputs = page.query_selector_all("input")
-    filled = 0
+def open_page(url):
+    with sync_playwright() as p:
+        browser = p.chromium.launch(
+            headless=True,
+            args=[
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu"
+            ]
+        )
 
-    for inp in inputs:
-        try:
-            name = (inp.get_attribute("name") or "").lower()
-            placeholder = (inp.get_attribute("placeholder") or "").lower()
-            typ = (inp.get_attribute("type") or "").lower()
+        page = browser.new_page()
+        page.goto(url, timeout=60000)
 
-            text = name + " " + placeholder + " " + typ
+        screenshot_path = "page.png"
+        page.screenshot(path=screenshot_path, full_page=True)
 
-            if re.search(r"first|fname|given", text):
-                inp.fill(data["first_name"])
-                filled += 1
-
-            elif re.search(r"last|lname|family", text):
-                inp.fill(data["last_name"])
-                filled += 1
-
-            elif "email" in text:
-                inp.fill(data["email"])
-                filled += 1
-
-            elif "pass" in text:
-                inp.fill(data["password"])
-                filled += 1
-
-        except:
-            continue
-
-    return filled
+        browser.close()
+        return screenshot_path
 
 
-# =========================
-# MAIN EXECUTION
-# =========================
 if run and url:
-    st.info("Running Playwright automation...")
-
-    data = generate_data()
-
     try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(
-                headless=True,
-                args=[
-                    "--no-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--disable-gpu"
-                ]
-            )
+        st.info("Loading website...")
 
-            page = browser.new_page()
-            page.goto(url, timeout=60000)
+        img = open_page(url)
 
-            filled = detect_and_fill(page, data)
-
-            try:
-                page.click("button")
-                submitted = True
-            except:
-                submitted = False
-
-            browser.close()
-
-        st.write(f"Fields filled: {filled}")
-
-        if submitted:
-            st.success("Form submit attempted ✅")
-        else:
-            st.warning("Submit button not clearly detected ⚠️")
+        st.success("Page loaded successfully ✅")
+        st.image(img)
 
     except Exception as e:
         st.error(f"Error: {e}")
