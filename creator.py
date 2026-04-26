@@ -4,121 +4,90 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from faker import Faker
-import threading
 import time
-import random
 
 fake = Faker()
 
-st.title("🚀 Auto Account Creator Tool")
+st.title("🧪 Universal Form Tester (Safe QA Tool)")
 
-# ===== ONLY 3 INPUTS =====
-url = st.text_input("🔗 Enter Website Link")
-total_accounts = st.number_input("🔢 Number of Accounts", 1, 5000, 100)
-threads_count = st.number_input("🧵 Threads", 1, 10, 5)
+url = st.text_input("🔗 Website URL")
+run = st.button("Start Test")
 
-start_btn = st.button("Start")
-
-# ===== GLOBALS =====
 success = 0
 failed = 0
-lock = threading.Lock()
-used_emails = set()
 
-progress = st.progress(0)
-status = st.empty()
-
-
-# ===== DRIVER =====
 def get_driver():
     options = webdriver.ChromeOptions()
-    options.add_argument("--headless")  # fast mode
-    options.add_argument("--disable-gpu")
+    options.add_argument("--headless")
     options.add_argument("--no-sandbox")
+    options.add_argument("--disable-gpu")
 
     return webdriver.Chrome(
         service=Service(ChromeDriverManager().install()),
         options=options
     )
 
+def generate_data():
+    return {
+        "first_name": fake.first_name(),
+        "last_name": fake.last_name(),
+        "email": fake.email(),
+        "password": fake.password()
+    }
 
-# ===== SMART EMAIL GENERATOR =====
-def generate_email(fn, ln, i):
-    email = f"{fn.lower()}.{ln.lower()}{random.randint(1000,99999)}@gmail.com"
+def auto_fill(driver):
+    data = generate_data()
 
-    while email in used_emails:
-        email = f"{fn.lower()}.{ln.lower()}{random.randint(1000,99999)}@gmail.com"
+    inputs = driver.find_elements(By.TAG_NAME, "input")
 
-    used_emails.add(email)
-    return email
+    for inp in inputs:
+        try:
+            name = inp.get_attribute("name") or ""
+            placeholder = inp.get_attribute("placeholder") or ""
+
+            field = (name + placeholder).lower()
+
+            if "first" in field:
+                inp.send_keys(data["first_name"])
+
+            elif "last" in field:
+                inp.send_keys(data["last_name"])
+
+            elif "mail" in field:
+                inp.send_keys(data["email"])
+
+            elif "pass" in field:
+                inp.send_keys(data["password"])
+
+        except:
+            continue
+
+def click_button(driver):
+    try:
+        buttons = driver.find_elements(By.TAG_NAME, "button")
+        if buttons:
+            buttons[0].click()
+            return True
+    except:
+        return False
 
 
-# ===== WORKER =====
-def worker(start, end):
-    global success, failed
-
+if run and url:
     driver = get_driver()
     driver.get(url)
 
-    for i in range(start, end):
-        try:
-            fn = fake.first_name()
-            ln = fake.last_name()
-            pw = fake.password()
+    time.sleep(3)
 
-            email = generate_email(fn, ln, i)
+    try:
+        auto_fill(driver)
+        clicked = click_button(driver)
 
-            # AUTO FORM DETECTION (common fields)
-            driver.find_element(By.NAME, "first_name").clear()
-            driver.find_element(By.NAME, "first_name").send_keys(fn)
+        if clicked:
+            st.success("Form Submitted Attempted ✅")
+        else:
+            st.warning("Button not found ⚠️")
 
-            driver.find_element(By.NAME, "last_name").clear()
-            driver.find_element(By.NAME, "last_name").send_keys(ln)
-
-            driver.find_element(By.NAME, "email").clear()
-            driver.find_element(By.NAME, "email").send_keys(email)
-
-            driver.find_element(By.NAME, "password").clear()
-            driver.find_element(By.NAME, "password").send_keys(pw)
-
-            driver.find_element(By.XPATH, "//button").click()
-
-            with lock:
-                success += 1
-
-        except:
-            with lock:
-                failed += 1
-
-        # update UI
-        with lock:
-            done = success + failed
-            progress.progress(done / total_accounts)
-            status.text(f"✅ Success: {success} | ❌ Failed: {failed}")
-
-        time.sleep(1)
-        driver.get(url)
+    except Exception as e:
+        st.error(f"Error: {e}")
 
     driver.quit()
-
-
-# ===== RUN =====
-if start_btn and url:
-    success = 0
-    failed = 0
-
-    threads = []
-    per_thread = total_accounts // threads_count
-
-    for i in range(threads_count):
-        start = i * per_thread
-        end = start + per_thread
-
-        t = threading.Thread(target=worker, args=(start, end))
-        threads.append(t)
-        t.start()
-
-    for t in threads:
-        t.join()
-
-    st.success(f"Done 🎉 Success: {success} | Failed: {failed}")
