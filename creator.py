@@ -6,37 +6,33 @@ from webdriver_manager.chrome import ChromeDriverManager
 from faker import Faker
 import threading
 import time
+import random
 
 fake = Faker()
 
-st.title("🚀 Bulk Account Creator (Testing Tool)")
+st.title("🚀 Auto Account Creator Tool")
 
-# UI Inputs
-url = st.text_input("Enter Website URL")
-total_accounts = st.number_input("Total Accounts", 1, 5000, 100)
-threads_count = st.number_input("Threads", 1, 10, 5)
-delay = st.number_input("Delay (seconds)", 0.0, 5.0, 1.0)
+# ===== ONLY 3 INPUTS =====
+url = st.text_input("🔗 Enter Website Link")
+total_accounts = st.number_input("🔢 Number of Accounts", 1, 5000, 100)
+threads_count = st.number_input("🧵 Threads", 1, 10, 5)
 
-st.markdown("### Form Field Names (change according to site)")
-first_name_field = st.text_input("First Name Field", "first_name")
-last_name_field = st.text_input("Last Name Field", "last_name")
-email_field = st.text_input("Email Field", "email")
-password_field = st.text_input("Password Field", "password")
+start_btn = st.button("Start")
 
-start_button = st.button("Start")
-
-# Shared variables
+# ===== GLOBALS =====
 success = 0
 failed = 0
 lock = threading.Lock()
+used_emails = set()
 
-progress_bar = st.progress(0)
-status_text = st.empty()
+progress = st.progress(0)
+status = st.empty()
 
 
+# ===== DRIVER =====
 def get_driver():
     options = webdriver.ChromeOptions()
-    options.add_argument("--headless")  # faster
+    options.add_argument("--headless")  # fast mode
     options.add_argument("--disable-gpu")
     options.add_argument("--no-sandbox")
 
@@ -46,15 +42,18 @@ def get_driver():
     )
 
 
-def generate_user(index):
-    return {
-        "first_name": fake.first_name(),
-        "last_name": fake.last_name(),
-        "email": f"user{index}@test.com",
-        "password": fake.password()
-    }
+# ===== SMART EMAIL GENERATOR =====
+def generate_email(fn, ln, i):
+    email = f"{fn.lower()}.{ln.lower()}{random.randint(1000,99999)}@gmail.com"
+
+    while email in used_emails:
+        email = f"{fn.lower()}.{ln.lower()}{random.randint(1000,99999)}@gmail.com"
+
+    used_emails.add(email)
+    return email
 
 
+# ===== WORKER =====
 def worker(start, end):
     global success, failed
 
@@ -63,19 +62,24 @@ def worker(start, end):
 
     for i in range(start, end):
         try:
-            data = generate_user(i)
+            fn = fake.first_name()
+            ln = fake.last_name()
+            pw = fake.password()
 
-            driver.find_element(By.NAME, first_name_field).clear()
-            driver.find_element(By.NAME, first_name_field).send_keys(data["first_name"])
+            email = generate_email(fn, ln, i)
 
-            driver.find_element(By.NAME, last_name_field).clear()
-            driver.find_element(By.NAME, last_name_field).send_keys(data["last_name"])
+            # AUTO FORM DETECTION (common fields)
+            driver.find_element(By.NAME, "first_name").clear()
+            driver.find_element(By.NAME, "first_name").send_keys(fn)
 
-            driver.find_element(By.NAME, email_field).clear()
-            driver.find_element(By.NAME, email_field).send_keys(data["email"])
+            driver.find_element(By.NAME, "last_name").clear()
+            driver.find_element(By.NAME, "last_name").send_keys(ln)
 
-            driver.find_element(By.NAME, password_field).clear()
-            driver.find_element(By.NAME, password_field).send_keys(data["password"])
+            driver.find_element(By.NAME, "email").clear()
+            driver.find_element(By.NAME, "email").send_keys(email)
+
+            driver.find_element(By.NAME, "password").clear()
+            driver.find_element(By.NAME, "password").send_keys(pw)
 
             driver.find_element(By.XPATH, "//button").click()
 
@@ -86,18 +90,20 @@ def worker(start, end):
             with lock:
                 failed += 1
 
+        # update UI
         with lock:
             done = success + failed
-            progress_bar.progress(done / total_accounts)
-            status_text.text(f"✅ Success: {success} | ❌ Failed: {failed}")
+            progress.progress(done / total_accounts)
+            status.text(f"✅ Success: {success} | ❌ Failed: {failed}")
 
-        time.sleep(delay)
+        time.sleep(1)
         driver.get(url)
 
     driver.quit()
 
 
-if start_button and url:
+# ===== RUN =====
+if start_btn and url:
     success = 0
     failed = 0
 
@@ -115,4 +121,4 @@ if start_button and url:
     for t in threads:
         t.join()
 
-    st.success(f"Done! ✅ Success: {success}, ❌ Failed: {failed}")
+    st.success(f"Done 🎉 Success: {success} | Failed: {failed}")
